@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delivery Performance Analytics Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080B0F;--s1:#0E1318;--card:#111820;--card2:#141C24;
+  --border:rgba(249,115,22,0.12);--border2:rgba(249,115,22,0.28);
+  --orange:#F97316;--amber:#FBB524;--green:#22C55E;--red:#EF4444;--blue:#38BDF8;--teal:#2DD4BF;
+  --text:#FFF7ED;--muted:#6B7280;--dim:#1C2A35;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 700px 500px at 90% 10%,rgba(249,115,22,0.07),transparent 60%),
+             radial-gradient(ellipse 500px 400px at 5% 85%,rgba(56,189,248,0.05),transparent 60%);
+  pointer-events:none;z-index:0;}
+
+.wrap{position:relative;z-index:1;padding:1.8rem 2rem;}
+
+/* HDR */
+.hdr{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center;margin-bottom:1.6rem;padding-bottom:1.2rem;border-bottom:1px solid var(--border);}
+.tag{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);padding:.25rem .7rem;display:inline-block;margin-bottom:.5rem;}
+h1{font-size:1.35rem;font-weight:700;line-height:1.2;}
+.sub{font-size:.76rem;color:var(--muted);margin-top:.3rem;}
+.alert-row{display:flex;gap:.6rem;flex-wrap:wrap;}
+.alert{display:flex;align-items:center;gap:.4rem;padding:.3rem .8rem;border-radius:4px;font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;}
+.al-red{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);}
+.al-orange{background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--orange);}
+.al-green{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--green);}
+.bdot{width:5px;height:5px;border-radius:50%;animation:blink 1.8s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.4rem;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;position:relative;overflow:hidden;opacity:0;transform:translateY(12px);transition:all .5s;}
+.kpi.show{opacity:1;transform:translateY(0);}
+.kpi::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--kc,var(--orange)) 0%,transparent 60%);opacity:.04;}
+.kl{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;}
+.kv{font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:700;color:var(--kc,var(--orange));line-height:1;}
+.kd{font-size:.62rem;margin-top:.35rem;}
+.up{color:var(--green);}.dn{color:var(--red);}.nt{color:var(--muted);}
+
+/* GRID */
+.row{display:grid;gap:1rem;margin-bottom:1rem;}
+.r-2-1{grid-template-columns:1.6fr 1fr;}
+.r-3{grid-template-columns:1fr 1fr 1fr;}
+.r-2{grid-template-columns:1fr 1fr;}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.3rem;opacity:0;transform:translateY(12px);transition:all .5s;}
+.card.show{opacity:1;transform:translateY(0);}
+.card:hover{border-color:var(--border2);}
+.ctitle{font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:1.1rem;}
+
+/* HEATMAP */
+.heatmap-wrap{display:flex;flex-direction:column;gap:.4rem;}
+.hm-row{display:flex;gap:.4rem;align-items:center;}
+.hm-label{font-size:.62rem;color:var(--muted);width:60px;flex-shrink:0;font-family:'Space Mono',monospace;}
+.hm-cells{display:flex;gap:.3rem;flex:1;}
+.hm-cell{flex:1;height:24px;border-radius:3px;position:relative;cursor:default;transition:all .3s;}
+.hm-cell:hover::after{content:attr(data-v);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#222;color:#fff;font-size:.6rem;padding:.15rem .4rem;border-radius:3px;white-space:nowrap;font-family:'Space Mono',monospace;}
+.hm-time-header{display:flex;gap:.3rem;padding-left:64px;margin-bottom:.2rem;}
+.hm-time-header span{flex:1;font-size:.58rem;color:var(--muted);text-align:center;}
+
+/* Scatter plot SVG */
+.scatter-svg{width:100%;height:180px;}
+
+/* Zone table */
+.zone-table{width:100%;border-collapse:collapse;font-size:.71rem;}
+.zone-table th{padding:.4rem .5rem;text-align:left;color:var(--muted);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.zone-table td{padding:.52rem .5rem;border-bottom:1px solid rgba(249,115,22,0.04);font-family:'Space Mono',monospace;}
+.zone-bar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-right:.4rem;}
+
+/* Driver analysis */
+.driver-list{display:flex;flex-direction:column;gap:.7rem;}
+.driver-item{display:flex;align-items:center;gap:.9rem;}
+.d-name{font-size:.72rem;color:var(--muted);width:90px;flex-shrink:0;}
+.d-track{flex:1;height:10px;background:var(--dim);border-radius:5px;overflow:hidden;}
+.d-fill{height:100%;border-radius:5px;width:0;transition:width 1.2s ease;}
+.d-val{font-family:'Space Mono',monospace;font-size:.7rem;color:var(--text);width:50px;text-align:right;flex-shrink:0;}
+.d-rank{font-size:.6rem;padding:.1rem .45rem;border-radius:3px;margin-left:.4rem;font-weight:700;}
+
+/* recommendation cards */
+.rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;}
+.rec-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:1rem;}
+.rc-icon{font-size:1.1rem;margin-bottom:.4rem;}
+.rc-title{font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.3rem;}
+.rc-text{font-size:.7rem;color:var(--muted);line-height:1.55;}
+.rc-impact{font-size:.7rem;color:var(--green);font-weight:600;margin-top:.4rem;}
+
+/* insight */
+.insight{background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.18);border-left:3px solid var(--orange);border-radius:0 8px 8px 0;padding:.75rem .9rem;margin-top:.9rem;font-size:.74rem;color:#FED7AA;line-height:1.6;}
+.insight b{color:var(--text);display:block;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.2rem;}
+
+.footer{margin-top:1.5rem;padding-top:.9rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:.65rem;color:var(--muted);}
+.footer a{color:var(--orange);text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HDR -->
+<div class="hdr">
+  <div>
+    <div class="tag">github.com/saivarnika/delivery-analytics</div>
+    <h1>Delivery Performance<br>Analytics Dashboard</h1>
+    <div class="sub">Power BI · SQL · Statistical Analysis · DAX · Decomposition Tree · Scatter Plot Analysis</div>
+  </div>
+  <div>
+    <div class="alert-row">
+      <div class="alert al-red"><span class="bdot" style="background:var(--red)"></span> Peak Hour: +40% Delays</div>
+      <div class="alert al-orange"><span class="bdot" style="background:var(--orange)"></span> 3 Zones Critical</div>
+      <div class="alert al-green"><span class="bdot" style="background:var(--green)"></span> Target: −15% Delays</div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI -->
+<div class="kpi-row">
+  <div class="kpi" style="--kc:var(--red)">
+    <div class="kl">Peak Hour Delay Surge</div>
+    <div class="kv" data-t="40" data-s="%">0%</div>
+    <div class="kd dn">vs off-peak baseline</div>
+  </div>
+  <div class="kpi" style="--kc:var(--orange)">
+    <div class="kl">Avg Delay Time</div>
+    <div class="kv" data-t="34" data-s="min">0min</div>
+    <div class="kd dn">Peak: 52min · Off: 18min</div>
+  </div>
+  <div class="kpi" style="--kc:var(--amber)">
+    <div class="kl">Underperforming Zones</div>
+    <div class="kv" data-t="3">0</div>
+    <div class="kd dn">of 8 zones flagged</div>
+  </div>
+  <div class="kpi" style="--kc:var(--green)">
+    <div class="kl">Delay Reduction Target</div>
+    <div class="kv" data-t="17" data-s="%">0%</div>
+    <div class="kd up">Via route + timing fix</div>
+  </div>
+  <div class="kpi" style="--kc:var(--blue)">
+    <div class="kl">Traffic vs Distance</div>
+    <div class="kv">2.4×</div>
+    <div class="kd nt">Traffic impact higher</div>
+  </div>
+</div>
+
+<!-- ROW 1 -->
+<div class="row r-2-1">
+  <!-- Heatmap -->
+  <div class="card">
+    <div class="ctitle">◉ Delay Heatmap — Zone × Hour of Day</div>
+    <div class="hm-time-header">
+      <span>8am</span><span>9am</span><span>10am</span><span>11am</span><span>12pm</span><span>1pm</span><span>2pm</span><span>3pm</span><span>4pm</span><span>5pm</span><span>6pm</span><span>7pm</span>
+    </div>
+    <div class="heatmap-wrap" id="heatmap"></div>
+    <div class="insight"><b>Counter-Intuitive Finding</b>Traffic congestion (2.4× multiplier) has greater delay impact than delivery distance — confirmed via Power BI scatter plot and decomposition tree. Short-distance deliveries during peak hours delay longer than long-haul off-peak routes.</div>
+  </div>
+
+  <!-- Scatter plot -->
+  <div class="card">
+    <div class="ctitle">⊕ Traffic vs Distance — Delay Impact</div>
+    <svg class="scatter-svg" viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg">
+      <!-- axes -->
+      <line x1="30" y1="10" x2="30" y2="155" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <line x1="30" y1="155" x2="210" y2="155" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="120" y="170" font-size="7" fill="#6B7280" text-anchor="middle" font-family="Space Grotesk">Distance (km)</text>
+      <text x="12" y="90" font-size="7" fill="#6B7280" text-anchor="middle" font-family="Space Grotesk" transform="rotate(-90,12,90)">Delay (min)</text>
+      <!-- grid -->
+      <line x1="30" y1="105" x2="210" y2="105" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="30" y1="55" x2="210" y2="55" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="120" y1="10" x2="120" y2="155" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="3,3"/>
+
+      <!-- traffic impact dots (orange/red = high traffic) -->
+      <circle cx="45" cy="45" r="7" fill="rgba(239,68,68,0.7)" stroke="none" data-label="High traffic, short dist, high delay"/>
+      <circle cx="60" cy="52" r="6" fill="rgba(239,68,68,0.6)" stroke="none"/>
+      <circle cx="50" cy="38" r="8" fill="rgba(239,68,68,0.8)" stroke="none"/>
+      <circle cx="70" cy="60" r="5" fill="rgba(249,115,22,0.7)" stroke="none"/>
+      <circle cx="55" cy="70" r="7" fill="rgba(239,68,68,0.6)" stroke="none"/>
+      <circle cx="65" cy="40" r="5" fill="rgba(239,68,68,0.7)" stroke="none"/>
+
+      <!-- distance impact dots (blue = low traffic, longer dist) -->
+      <circle cx="150" cy="115" r="6" fill="rgba(56,189,248,0.6)" stroke="none"/>
+      <circle cx="170" cy="120" r="7" fill="rgba(56,189,248,0.5)" stroke="none"/>
+      <circle cx="160" cy="108" r="5" fill="rgba(56,189,248,0.65)" stroke="none"/>
+      <circle cx="185" cy="125" r="6" fill="rgba(56,189,248,0.55)" stroke="none"/>
+      <circle cx="145" cy="130" r="5" fill="rgba(56,189,248,0.6)" stroke="none"/>
+      <circle cx="175" cy="112" r="4" fill="rgba(56,189,248,0.5)" stroke="none"/>
+
+      <!-- mixed -->
+      <circle cx="100" cy="88" r="5" fill="rgba(251,181,36,0.6)" stroke="none"/>
+      <circle cx="115" cy="95" r="6" fill="rgba(251,181,36,0.55)" stroke="none"/>
+      <circle cx="90" cy="100" r="4" fill="rgba(251,181,36,0.6)" stroke="none"/>
+      <circle cx="130" cy="85" r="5" fill="rgba(251,181,36,0.5)" stroke="none"/>
+
+      <!-- trend lines -->
+      <line x1="40" y1="42" x2="200" y2="122" stroke="rgba(239,68,68,0.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <line x1="40" y1="130" x2="200" y2="100" stroke="rgba(56,189,248,0.4)" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+      <!-- labels -->
+      <text x="48" y="30" font-size="6.5" fill="#EF4444" font-family="Space Grotesk" font-weight="600">High Traffic</text>
+      <text x="48" y="39" font-size="6" fill="#EF4444" font-family="Space Grotesk">Short dist, long delay</text>
+      <text x="145" y="140" font-size="6.5" fill="#38BDF8" font-family="Space Grotesk">Long Distance</text>
+      <text x="145" y="149" font-size="6" fill="#38BDF8" font-family="Space Grotesk">Low traffic, low delay</text>
+
+      <!-- annotation box -->
+      <rect x="68" y="12" width="92" height="20" rx="4" fill="rgba(249,115,22,0.1)" stroke="rgba(249,115,22,0.3)" stroke-width="1"/>
+      <text x="114" y="21" font-size="6.5" fill="#F97316" text-anchor="middle" font-family="Space Grotesk" font-weight="600">Traffic: 2.4× > Distance impact</text>
+      <text x="114" y="29" font-size="5.5" fill="#FED7AA" text-anchor="middle" font-family="Space Grotesk">Validated via decomposition tree</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ROW 2 -->
+<div class="row r-2">
+  <!-- Zone table -->
+  <div class="card">
+    <div class="ctitle">📍 Zone Benchmarking — Delay Performance</div>
+    <table class="zone-table">
+      <thead><tr><th>Zone</th><th>Avg Delay</th><th>Peak Delay</th><th>Delay Rate</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>North CBD</td>
+          <td style="color:var(--red)">52 min</td>
+          <td style="color:var(--red)">74 min</td>
+          <td><span class="zone-bar" style="width:40px;background:var(--red)"></span>38%</td>
+          <td style="color:var(--red)">Critical</td>
+        </tr>
+        <tr>
+          <td>East Market</td>
+          <td style="color:var(--red)">48 min</td>
+          <td style="color:var(--red)">68 min</td>
+          <td><span class="zone-bar" style="width:35px;background:var(--red)"></span>35%</td>
+          <td style="color:var(--red)">Critical</td>
+        </tr>
+        <tr>
+          <td>West Industrial</td>
+          <td style="color:var(--amber)">41 min</td>
+          <td style="color:var(--amber)">60 min</td>
+          <td><span class="zone-bar" style="width:28px;background:var(--amber)"></span>28%</td>
+          <td style="color:var(--amber)">Amber</td>
+        </tr>
+        <tr>
+          <td>South Suburban</td>
+          <td style="color:var(--amber)">31 min</td>
+          <td style="color:var(--amber)">44 min</td>
+          <td><span class="zone-bar" style="width:22px;background:var(--amber)"></span>22%</td>
+          <td style="color:var(--amber)">Amber</td>
+        </tr>
+        <tr>
+          <td>Northwest</td>
+          <td style="color:var(--green)">18 min</td>
+          <td style="color:var(--green)">24 min</td>
+          <td><span class="zone-bar" style="width:12px;background:var(--green)"></span>12%</td>
+          <td style="color:var(--green)">Green</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="insight"><b>Geographic Insight</b>CBD zones flagged using Power BI map visual + geographic benchmarking. Delay rate 3.2× higher than suburban zones. Root cause: signal-dense routes, high pedestrian traffic.</div>
+  </div>
+
+  <!-- Delay drivers + recommendations -->
+  <div class="card">
+    <div class="ctitle">⚡ Delay Driver Analysis + Recommendations</div>
+    <div class="driver-list" style="margin-bottom:1rem">
+      <div class="driver-item">
+        <div class="d-name">Traffic Index</div>
+        <div class="d-track"><div class="d-fill" style="background:linear-gradient(90deg,#EF4444,#F97316);--w:84%"></div></div>
+        <div class="d-val">2.4× impact</div>
+        <span class="d-rank" style="background:rgba(239,68,68,0.12);color:var(--red)">#1</span>
+      </div>
+      <div class="driver-item">
+        <div class="d-name">Hour of Day</div>
+        <div class="d-track"><div class="d-fill" style="background:var(--amber);--w:68%"></div></div>
+        <div class="d-val">+40% peak</div>
+        <span class="d-rank" style="background:rgba(251,181,36,0.12);color:var(--amber)">#2</span>
+      </div>
+      <div class="driver-item">
+        <div class="d-name">Zone Type</div>
+        <div class="d-track"><div class="d-fill" style="background:var(--orange);--w:55%"></div></div>
+        <div class="d-val">3.2× CBD</div>
+        <span class="d-rank" style="background:rgba(249,115,22,0.12);color:var(--orange)">#3</span>
+      </div>
+      <div class="driver-item">
+        <div class="d-name">Distance (km)</div>
+        <div class="d-track"><div class="d-fill" style="background:var(--blue);--w:35%"></div></div>
+        <div class="d-val">0.9× minor</div>
+        <span class="d-rank" style="background:rgba(56,189,248,0.12);color:var(--blue)">#4</span>
+      </div>
+    </div>
+    <div class="ctitle" style="margin-top:.3rem">📌 Recommendations</div>
+    <div class="rec-grid">
+      <div class="rec-card">
+        <div class="rc-icon">🕐</div>
+        <div class="rc-title">Shift Peak Deliveries</div>
+        <div class="rc-text">Reschedule 30% of CBD deliveries to 7–9am or 7–9pm off-peak windows.</div>
+        <div class="rc-impact">Est. −18% delays</div>
+      </div>
+      <div class="rec-card">
+        <div class="rc-icon">🗺</div>
+        <div class="rc-title">Route Optimisation</div>
+        <div class="rc-text">Bypass North CBD + East Market using alternate arterial routes during 12–6pm.</div>
+        <div class="rc-impact">Est. −12% avg TAT</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Sai Varnika Devulapally · Business Analyst · <a href="http://linkedin.com/in/saivarnikadevulapally/">LinkedIn</a></div>
+  <div><a href="https://github.com/saivarnika/delivery-analytics">github.com/saivarnika/delivery-analytics</a> · Power BI · SQL · Statistical Analysis</div>
+</div>
+</div>
+
+<script>
+// Heatmap data: zones × hours, value = delay minutes
+const zones=['North CBD','East Mkt','West Ind','South Sub','North Sub','Central','Northwest','Airport'];
+const hours=['8a','9a','10a','11a','12p','1p','2p','3p','4p','5p','6p','7p'];
+const data=[
+  [22,28,38,52,62,68,71,74,70,64,55,40],
+  [18,25,34,48,58,65,68,70,66,60,50,36],
+  [14,18,28,36,44,52,56,60,55,48,38,28],
+  [10,12,18,24,30,34,36,38,35,30,24,18],
+  [8, 10,14,18,22,26,28,30,28,24,18,14],
+  [16,20,30,44,54,60,64,68,62,56,44,32],
+  [6, 8, 10,12,16,18,20,22,20,16,12,8 ],
+  [12,14,20,28,36,40,44,46,42,36,28,20],
+];
+function getColor(v){
+  if(v>=60)return`rgba(239,68,68,${0.5+v/200})`;
+  if(v>=40)return`rgba(249,115,22,${0.4+v/200})`;
+  if(v>=25)return`rgba(251,181,36,${0.35+v/200})`;
+  return`rgba(34,197,94,${0.25+v/200})`;
+}
+const hm=document.getElementById('heatmap');
+zones.forEach((z,zi)=>{
+  const row=document.createElement('div');row.className='hm-row';
+  const lbl=document.createElement('div');lbl.className='hm-label';lbl.textContent=z;row.appendChild(lbl);
+  const cells=document.createElement('div');cells.className='hm-cells';
+  data[zi].forEach((v,hi)=>{
+    const c=document.createElement('div');c.className='hm-cell';
+    c.dataset.v=v+'min';
+    c.style.background='rgba(30,42,53,0.8)';
+    c.style.transition=`background .8s ease ${(zi*12+hi)*20}ms`;
+    setTimeout(()=>c.style.background=getColor(v),300+(zi*12+hi)*15);
+    cells.appendChild(c);
+  });
+  row.appendChild(cells);hm.appendChild(row);
+});
+
+function counter(){
+  document.querySelectorAll('[data-t]').forEach(el=>{
+    const t=parseFloat(el.dataset.t),s=el.dataset.s||'',d=parseInt(el.dataset.d||0);
+    let st=0;const go=ts=>{if(!st)st=ts;const p=Math.min((ts-st)/1400,1),e=1-Math.pow(1-p,3);
+    el.textContent=(t*e).toFixed(d)+s;if(p<1)requestAnimationFrame(go);};requestAnimationFrame(go);
+  });
+}
+function bars(){
+  document.querySelectorAll('.d-fill').forEach(el=>{
+    const w=el.style.cssText.match(/--w:([^;]+)/)?.[1]||'0%';
+    setTimeout(()=>el.style.width=w,400);
+  });
+}
+const obs=new IntersectionObserver(entries=>entries.forEach((e,i)=>{
+  if(e.isIntersecting)setTimeout(()=>e.target.classList.add('show'),i*70);
+}),{threshold:0.05});
+document.querySelectorAll('.card,.kpi').forEach(c=>obs.observe(c));
+window.addEventListener('load',()=>setTimeout(()=>{counter();bars();},300));
+</script>
+</body>
+</html>
